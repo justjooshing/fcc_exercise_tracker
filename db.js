@@ -1,5 +1,4 @@
 const { connect, Schema, model } = require("mongoose");
-const { processDate } = require("./helpers");
 
 const db = connect(process.env.MONGODB_URL);
 
@@ -30,28 +29,48 @@ const findAllUsers = async () => {
 };
 
 const createExercise = async ({ userID, description, duration, date }) => {
-  const result = await Exercise.create({
+  const data = await Exercise.create({
     userID,
     description,
     duration,
     date: date ? new Date(date) : new Date(),
   });
-  return processDate(result);
+
+  return {
+    description: data.description,
+    duration: data.duration,
+    date: data.date.toDateString(),
+  };
 };
 
 const findExercisesById = async (userID, { to, from, limit }) => {
-  const result = await Exercise.find(
-    { userID, date: { $gte: from, $lte: to } },
-    {
-      date: 1,
-      duration: 1,
-      description: 1,
-      _id: 0,
-    },
-    { lean: true }
-  ).limit(limit);
+  const query = {
+    userID,
+  };
 
-  return result.map(processDate);
+  if (to) {
+    query.date = {};
+    query.date["$lte"] = to;
+  }
+  if (from) {
+    if (!query.date) {
+      query.date = {};
+    }
+    query.date["$gte"] = from;
+  }
+
+  const data = await Exercise.find(query, {
+    date: 1,
+    duration: 1,
+    description: 1,
+    _id: 0,
+  }).limit(limit);
+
+  return data.map(({ date, description, duration }) => ({
+    date: date.toDateString(),
+    description,
+    duration,
+  }));
 };
 
 module.exports = {
